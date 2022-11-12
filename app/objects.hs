@@ -7,4 +7,5 @@ data Obstacle = Enemy Health Pos Dir ShootDir
                 | Asteroid Health Pos Dir
                 | Mine Health Pos
                 | Projectile Pos Dir
+data Player   = Player Health Pos Dir ShootDir
     
