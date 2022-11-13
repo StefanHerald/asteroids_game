@@ -66,9 +66,9 @@ writeScore score = do
         return ()
 
 handleInput :: Event -> GameState -> GameState
-handleInput (EventKey (Char 'w') _ _ _ ) (GameState os (Player h pos (dx, dy) ps) s t d False) = GameState os (Player h pos (dx, -5) ps) s t d False
+handleInput (EventKey (Char 'w') _ _ _ ) (GameState os (Player h pos (dx, dy) ps) s t d False) = GameState os (Player h pos (dx, 5) ps) s t d False
 handleInput (EventKey (Char 'a') _ _ _ ) (GameState os (Player h pos (dx, dy) ps) s t d False) = GameState os (Player h pos (-5, dy) ps) s t d False
-handleInput (EventKey (Char 's') _ _ _ ) (GameState os (Player h pos (dx, dy) ps) s t d False) = GameState os (Player h pos (dx, 5) ps) s t d False
+handleInput (EventKey (Char 's') _ _ _ ) (GameState os (Player h pos (dx, dy) ps) s t d False) = GameState os (Player h pos (dx, -5) ps) s t d False
 handleInput (EventKey (Char 'd') _ _ _ ) (GameState os (Player h pos (dx, dy) ps) s t d False) = GameState os (Player h pos (5, dy) ps) s t d False
 handleInput (EventKey (SpecialKey KeySpace) Down _ _) gstate = gstate{paused = True}
 handleInput (EventKey (MouseButton LeftButton) _ _ _ ) (GameState os p s t d False) = GameState os (playerShot p) s t d False
@@ -86,18 +86,23 @@ playerShot p@(Player h pos dir ps)
 step :: Float -> GameState -> IO GameState --secs is truly the amount of secs
 step secs gstate@(GameState os p s t d _) = do
                                      g <- getStdGen
-                                     let x = takeFirst (randomR (1, d) g)
+                                     let x = fst (randomR (1, d) g)
                                      setStdGen (takeSecond (randomR (1, d) g))
                                      g <- getStdGen
-                                     let y = takeFirst (randomR (1, d) g)
+                                     let y = fst (randomR (1, d) g)
                                      setStdGen (takeSecond (randomR (1, d) g))
                                      g <- getStdGen
-                                     let z = takeFirst (randomR (1, 5 * d) g)
+                                     let z = fst (randomR (1, 5 * d) g)
                                      setStdGen (takeSecond (randomR (1, d) g))
                                      return ( spawnEnemyOrNot (mod x 10) y z (stepObj (updateGamestate gstate{timer = timer gstate + secs })))
                                     
 takeSecond :: (a, b) -> b
 takeSecond (a, b) = b
+
+spawnEnemyOrNot :: Int -> Int -> Int -> GameState -> GameState
+spawnEnemyOrNot x y z g@(GameState os p s t d b)
+                                        | z < (max (div d 4) 2) && (length os < 10) = GameState (os ++ [Enemy 3 (fromIntegral (50 * (mod x 12) - 300), fromIntegral (50 * (mod y 12) - 300)) (0, 0)]) p s t d b
+                                        | otherwise = GameState os p s t d b
 
 stepObj :: GameState -> GameState --can be called for more than just removing objects with 0 HP
 stepObj (GameState obj p sc t d boo) = GameState (removeZeroHp obj) p sc t d boo 
