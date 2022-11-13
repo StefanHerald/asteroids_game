@@ -18,13 +18,13 @@ data Obstacle = Enemy Health Pos Dir
                 deriving (Show)
 
 instance OnScreen Obstacle where
-    onScreen (Enemy _ pos dir)    = color cyan   (rotateAndTranslate pos dir   (text "A"))
-    onScreen (Asteroid _ pos dir) = color brown  (rotateAndTranslate pos dir   (text "O"))
-    onScreen (Mine _ pos)         = color red    (rotateAndTranslate pos (0,0) (text "X"))
-    onScreen (Projectile pos dir) = color yellow (rotateAndTranslate pos dir   (text "I"))
+    onScreen (Enemy _ pos dir)    = color cyan   (resizeRotateAndTranslate (0.2, 0.2) pos dir   (text "A"))
+    onScreen (Asteroid _ pos dir) = color brown  (resizeRotateAndTranslate (0.2, 0.2) pos dir   (text "O"))
+    onScreen (Mine _ pos)         = color red    (resizeRotateAndTranslate (0.2, 0.2) pos (0,0) (text "X"))
+    onScreen (Projectile pos dir) = color yellow (resizeRotateAndTranslate (0.2, 0.2) pos dir   (text "I"))
 
-rotateAndTranslate :: Pos -> Dir -> Picture -> Picture
-rotateAndTranslate (px, py) dir pic = translate px py (rotate (argV dir) pic)
+resizeRotateAndTranslate :: (Float, Float) -> Pos -> Dir -> Picture -> Picture
+resizeRotateAndTranslate (sx, sy) (px, py) dir pic = translate px py (rotate (argV dir) (scale sx sy pic))
 
 brown :: Color
 brown = makeColorI 255 248 220 255
@@ -33,7 +33,7 @@ data Player = Player{ health :: Health, position :: Pos, direction :: Dir, proje
               deriving (Show)
 
 instance OnScreen Player where
-    onScreen (Player _ pos dir _) = color green (rotateAndTranslate pos dir (text "Y"))
+    onScreen (Player _ pos dir pro) = pictures ((color green (resizeRotateAndTranslate (0.2, 0.2 ) pos dir (text "Y"))) : (map onScreen pro))
 
 initialPlayer :: Player
-initialPlayer = Player 3 (300, 300) (0,0) []
+initialPlayer = Player 3 (0, 0) (0, 0) []
