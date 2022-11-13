@@ -68,4 +68,4 @@ instance ToFile Player where
                                                     (show dy) ++ " " ++ 
                                                     (concat (map toFile pro))
 initialPlayer :: Player
-initialPlayer = Player 3 (0, 0) (0, 0) []
+initialPlayer = Player 10 (0, 0) (0, 0) []

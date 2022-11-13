@@ -16,16 +16,25 @@ main = playIO (InWindow "Asteroids" (600, 600) (0, 0)) --window name: asteroids,
                step                                    -- advance the rest of the world     
 
 view :: GameState -> IO Picture --impure function returning the view
+view gstate@(GameState obs pl@(Player 0 _ _ _) score _ _ _) = do
+    x <- readFile "../asteroids_game/saves/highscore.txt"
+    return $ pictures $ viewPure gstate : whatToPress : placeHigh x : addOnDeath 
+    where
+         addOnDeath = [resizeRotateAndTranslate (0.6, 0.6) (-280, 200) (0,0) (color white (text "You have lost!")),
+                    resizeRotateAndTranslate (0.2, 0.2) (-280, 120) (0,0) (color orange (text $ "This time: " ++ show score))]
+         placeHigh sc = resizeRotateAndTranslate (0.2, 0.2) (-280, 60) (0,0) (color green (text $ "Best of all time: " ++ sc ))
+         whatToPress =  resizeRotateAndTranslate (0.2, 0.2) (-280, 0) (0,0) (color white (text "Press k to restart or r to reload") )
 view gstate = return (viewPure gstate)
 
 viewPure :: GameState -> Picture --pure function for the view
-viewPure (GameState obs pl sc time dif b) | b  = pictures ((dimAll full) ++ addToPaused)
-                                          | otherwise = pictures full
+viewPure (GameState obs pl@(Player h _ _ _) sc time dif b) 
+    | h /= 0 && b  = pictures ((dimAll full) ++ addToPaused)
+    | otherwise    = pictures full
     where
         dimAll :: [Picture] -> [Picture]
         dimAll []              = []
         dimAll((Color c p):xs) = (Color (dim c) p) : dimAll xs
-        dimAll (x:xs)          = x:xs
+        dimAll (x:xs)          = x : dimAll xs
         addToPaused = [resizeRotateAndTranslate (0.7, 0.7) (-280, 200) (0,0) (color white (text "| |")),
                        resizeRotateAndTranslate (0.2, 0.2) (-280, 120) (0,0) (color white (text "Press space to unpause")),
                        resizeRotateAndTranslate (0.2, 0.2) (-280, 40) (0,0) (color white (text "Press r to save the current state")),
@@ -38,9 +47,21 @@ viewPure (GameState obs pl sc time dif b) | b  = pictures ((dimAll full) ++ addT
         drawDif  = resizeRotateAndTranslate (0.15, 0.15) (-280, 280) (0,0) (color red (text (show dif)))
 
 input :: Event -> GameState -> IO GameState
+input e gstate@(GameState _ (Player 0 _ _ _) score _ _ False) = do 
+    writeScore score
+    return gstate{paused = True}
+input e gstate@(GameState _ (Player 0 _ _ _) _ _ _ True) = handleDeath e gstate
 input e gstate | paused gstate = handlePause e gstate
                | otherwise = return (handleInput e gstate) 
 
+writeScore :: Int -> IO()
+writeScore score = do
+    x <- readFile "../asteroids_game/saves/highscore.txt"
+    if score > read x then
+        writeFile "../asteroids_game/saves/highscore.txt" (show score)
+    else
+        return ()
+        
 handleInput :: Event -> GameState -> GameState
 handleInput (EventKey (Char 'w') _ _ _ ) (GameState os (Player h pos (dx, dy) ps) s t d False) = GameState os (Player h pos (dx, dy - 5) ps) s t d False
 handleInput (EventKey (Char 'a') _ _ _ ) (GameState os (Player h pos (dx, dy) ps) s t d False) = GameState os (Player h pos (dx - 5, dy) ps) s t d False
@@ -49,9 +70,16 @@ handleInput (EventKey (Char 'd') _ _ _ ) (GameState os (Player h pos (dx, dy) ps
 handleInput (EventKey (SpecialKey KeySpace) Down _ _) gstate = gstate{paused = True}
 handleInput _                          (GameState os (Player h pos (dx, dy) ps) s t d False) = GameState os (Player h pos (0.75 * dx, 0.75 * dy) ps) s t d False
 handleInput _ gstate = gstate
-step :: Float -> GameState -> IO GameState --secs is truly the amount of secs
+
+handleDeath :: Event -> GameState -> IO GameState
+handleDeath (EventKey (Char 'k') _ _ _) gstate = return initialGameState
+handleDeath (EventKey (Char 'r') _ _ _) gstate = loadGame
+handleDeath _ gstate = return gstate 
+
+step :: Float -> GameState -> IO GameState --secs is truly the amount of secs  
 step secs gstate |  paused gstate = return gstate
                  |  otherwise     = return ( gstate{timer = timer gstate + secs })
+
 
 --pausing, saving and loading the game
 handlePause :: Event -> GameState -> IO GameState
@@ -74,18 +102,21 @@ saveGame gstate = do
 loadGame :: IO GameState
 loadGame = do
     file <- readFile "../asteroids_game/saves/save"
-    let ls = lines file
-        obs = loadObs $ words (head ls)
-        lss = drop 1 ls
-        p = loadPl $ words (head lss)
-        lsss = drop 1 lss
-        sc = read $ head lsss :: Int
-        lssss = drop 1 lsss
-        time = read $ head lssss :: Float
-        lsssss = drop 1 lssss
-        dif = read $ head lsssss :: Int
-        in
-        return (GameState obs p sc time dif False)
+    if file == "" then
+        return initialGameState
+    else
+        let ls = lines file
+            obs = loadObs $ words (head ls)
+            lss = drop 1 ls
+            p = loadPl $ words (head lss)
+            lsss = drop 1 lss
+            sc = read $ head lsss :: Int
+            lssss = drop 1 lsss
+            time = read $ head lssss :: Float
+            lsssss = drop 1 lssss
+            dif = read $ head lsssss :: Int
+            in
+            return (GameState obs p sc time dif False)
 
 loadObs :: [String] -> [Obstacle]
 loadObs [] = []
