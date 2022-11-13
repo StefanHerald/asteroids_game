@@ -18,7 +18,8 @@ data Obstacle = Enemy Health Pos Dir
                 | Mine Health Pos
                 | Projectile Pos Dir
                 | Animation Pos Int Float
-                deriving (Show)
+                deriving (Show, Eq)
+
 newAnimation :: Pos -> Obstacle 
 newAnimation pos = Animation pos 0 0
 instance OnScreen Obstacle where
