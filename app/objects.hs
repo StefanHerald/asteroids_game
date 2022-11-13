@@ -17,13 +17,18 @@ data Obstacle = Enemy Health Pos Dir
                 | Asteroid Health Pos Dir
                 | Mine Health Pos
                 | Projectile Pos Dir
+                | Animation Pos Int Float
                 deriving (Show)
-
+newAnimation :: Pos -> Obstacle 
+newAnimation pos = Animation pos 0 0
 instance OnScreen Obstacle where
     onScreen (Enemy _ pos dir)    = color cyan   (resizeRotateAndTranslate (0.2, 0.2) pos dir   (text "A"))
     onScreen (Asteroid _ pos dir) = color brown  (resizeRotateAndTranslate (0.2, 0.2) pos dir   (text "O"))
     onScreen (Mine _ pos)         = color red    (resizeRotateAndTranslate (0.2, 0.2) pos (0,0) (text "X"))
     onScreen (Projectile pos dir) = color yellow (resizeRotateAndTranslate (0.2, 0.2) pos dir   (text "I"))
+    onScreen (Animation pos 0 _)    = color yellow (resizeRotateAndTranslate (0.2, 0.2) pos (0,0) (text "X"))
+    onScreen (Animation pos 1 _)    = color orange  (resizeRotateAndTranslate (0.25, 0.25) pos (0,0) (text "O"))
+    onScreen (Animation pos _ _)    = color red  (resizeRotateAndTranslate (0.3, 0.3) pos (0,0) (text "O"))
 
 instance ToFile Obstacle where
     toFile (Enemy health (px, py) (dx, dy)) = "E " ++ 
@@ -47,6 +52,8 @@ instance ToFile Obstacle where
                                             show py ++ " " ++ 
                                             show dx ++ " " ++ 
                                             show dy ++ " "  
+    toFile (Animation _ _ _)   = ""
+
 resizeRotateAndTranslate :: (Float, Float) -> Pos -> Dir -> Picture -> Picture
 resizeRotateAndTranslate (sx, sy) (px, py) dir pic = translate px py (rotate (argV dir) (scale sx sy pic))
 

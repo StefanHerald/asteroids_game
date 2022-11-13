@@ -61,7 +61,7 @@ writeScore score = do
         writeFile "../asteroids_game/saves/highscore.txt" (show score)
     else
         return ()
-        
+
 handleInput :: Event -> GameState -> GameState
 handleInput (EventKey (Char 'w') _ _ _ ) (GameState os (Player h pos (dx, dy) ps) s t d False) = GameState os (Player h pos (dx, dy - 5) ps) s t d False
 handleInput (EventKey (Char 'a') _ _ _ ) (GameState os (Player h pos (dx, dy) ps) s t d False) = GameState os (Player h pos (dx - 5, dy) ps) s t d False
@@ -78,8 +78,19 @@ handleDeath _ gstate = return gstate
 
 step :: Float -> GameState -> IO GameState --secs is truly the amount of secs  
 step secs gstate |  paused gstate = return gstate
-                 |  otherwise     = return ( gstate{timer = timer gstate + secs })
+                 |  otherwise     = return $ stepObj gstate{timer = timer gstate + secs }
 
+stepObj :: GameState -> GameState --can be called for more than just removing objects with 0 HP
+stepObj (GameState obj p sc t d boo) = GameState (removeZeroHp obj) p sc t d boo 
+
+removeZeroHp :: [Obstacle] -> [Obstacle]
+removeZeroHp [] = []
+removeZeroHp (Animation pos stage time : xs) | stage > 2 = removeZeroHp xs
+                                             | otherwise = (Animation pos (floor time) (time + 0.05)) : removeZeroHp xs
+removeZeroHp (Enemy 0 pos _ : xs )   = newAnimation pos : removeZeroHp xs
+removeZeroHp (Asteroid 0 pos _ : xs) = newAnimation pos : removeZeroHp xs
+removeZeroHp (Mine 0 pos : xs )      = newAnimation pos : removeZeroHp xs
+removeZeroHp (x : xs)                = x : removeZeroHp xs
 
 --pausing, saving and loading the game
 handlePause :: Event -> GameState -> IO GameState
@@ -97,7 +108,6 @@ handlePause _ gstate = return gstate
 saveGame :: GameState -> IO()
 saveGame gstate = do 
     writeFile "../asteroids_game/saves/save" (toFile gstate)
-    return ()
 
 loadGame :: IO GameState
 loadGame = do
@@ -138,10 +148,12 @@ readPos px py = (read px, read py)
 readDir :: String -> String -> Dir
 readDir dx dy = (read dx, read dy)
 
---moving objects
+--moving objects and deleting them
 updateGamestate :: GameState -> GameState
 updateGamestate (GameState os p s t d False) = GameState (map moveObjects os) (movePlayer p) s t d False
 updateGamestate gstate = gstate
+
+
 
 moveObjects :: Obstacle -> Obstacle
 moveObjects (Enemy h (x, y) dir@(dx, dy)) = Enemy h (x + dx, y + dy) dir
