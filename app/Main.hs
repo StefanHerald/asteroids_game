@@ -85,19 +85,18 @@ playerShot p@(Player h pos dir ps)
                                 | otherwise = p
 
 step :: Float -> GameState -> IO GameState --secs is truly the amount of secs
-step secs gstate@(GameState os p s t d pause) 
-    | pause = return gstate
-    | otherwise =  do
-    g <- getStdGen
-    let x = fst (randomR (1, d) g)
-    setStdGen (takeSecond (randomR (1, d) g))
-    g <- getStdGen
-    let y = fst (randomR (1, d) g)
-    setStdGen (takeSecond (randomR (1, d) g))
-    g <- getStdGen
-    let z = fst (randomR (1, 5 * d) g)
-    setStdGen (takeSecond (randomR (1, d) g))
-    return ( spawnEnemyOrNot (mod x 10) y z (stepObj (updateGamestate gstate{timer = timer gstate + secs })))
+step secs gstate@(GameState os p s t d False) = do
+                                     g <- getStdGen
+                                     let x = fst (randomR (1, d) g)
+                                     setStdGen (takeSecond (randomR (1, d) g))
+                                     g <- getStdGen
+                                     let y = fst (randomR (1, d) g)
+                                     setStdGen (takeSecond (randomR (1, d) g))
+                                     g <- getStdGen
+                                     let z = fst (randomR (1, 5 * d) g)
+                                     setStdGen (takeSecond (randomR (1, d) g))
+                                     return ( spawnEnemyOrNot (mod x 10) y z (stepObj (updateGamestate gstate{timer = timer gstate + secs })))
+step _ g = return g
                                     
 takeSecond :: (a, b) -> b
 takeSecond (a, b) = b
@@ -177,12 +176,18 @@ readDir dx dy = (read dx, read dy)
 
 --moving objects and deleting them
 updateGamestate :: GameState -> GameState
-updateGamestate g@(GameState os p@(Player h pos dir ps) s t d _) = applyChain checkPlayerCollision (GameState (map (moveObjects p) os) (movePlayer (Player h pos dir (map (moveObjects p) (deleteOutOfBounds ps)))) s t d False) os
+updateGamestate g@(GameState os p@(Player h pos dir ps) s t d False) = applyApplyChain (applyChain checkPlayerCollision (GameState (map (moveObjects p) os) (movePlayer (Player h pos dir (map (moveObjects p) (deleteOutOfBounds ps)))) s t d False) os) ps os
+updateGamestate g = g
 
-applyChain :: (c -> b -> c) -> c -> [b] -> c
+applyChain :: (GameState -> Obstacle -> GameState) -> GameState -> [Obstacle] -> GameState
 applyChain f a (b : []) = f a b
 applyChain f a (b : bs) = applyChain f (f a b) bs
 applyChain _ a [] = a
+
+applyApplyChain :: GameState -> [Obstacle] -> [Obstacle] -> GameState
+applyApplyChain a [] _ = a
+applyApplyChain a (p : []) os = applyChain (checkPlayerProjectileCollision p) a os
+applyApplyChain a (p : ps) os = applyApplyChain (applyChain (checkPlayerProjectileCollision p) a os) ps os
 
 moveObjects :: Player -> Obstacle -> Obstacle
 moveObjects p (Enemy h (x, y) dir@(dx, dy)) = enemyAI (Enemy h (x + dx, y + dy) dir) p
@@ -205,17 +210,17 @@ checkPlayerCollision g@(GameState os p@(Player h (x, y) (dx, dy) ps) s t d _) o@
                                                                     | otherwise = g
 checkPlayerCollision g _ = g
 
-checkPlayerProjectileCollision :: GameState -> Obstacle -> Obstacle -> GameState
-checkPlayerProjectileCollision g@(GameState os p@(Player h pos pdir ps) s t d _) pr@(Projectile (x, y) dir) o@(Enemy oh op@(ex, ey) odir)
-                                                                    | ((x + 10) > (ex - 10)) && ((y + 10) > (ey - 10)) && ((x - 10) > (ex + 10)) && ((y - 10) > (ey + 10)) = GameState ((Enemy (oh - 1) op odir) : (filter (\x -> x /= o) os)) (Player h pos pdir (filter (\x -> x /= pr) ps)) s t d False
+checkPlayerProjectileCollision :: Obstacle -> GameState -> Obstacle -> GameState
+checkPlayerProjectileCollision pr@(Projectile (x, y) dir) g@(GameState os p@(Player h pos pdir ps) s t d _) o@(Enemy oh op@(ex, ey) odir)
+                                                                    | ((x + 10) > (ex - 10)) && ((y + 10) > (ey - 10)) && ((x - 10) < (ex + 10)) && ((y - 10) < (ey + 10)) = GameState ((Enemy (oh - 1) op odir) : (delete o os)) (Player h pos pdir (filter (\x -> x /= pr) ps)) s t d False
                                                                     | otherwise = g
-checkPlayerProjectileCollision g@(GameState os p@(Player h pos pdir ps) s t d _) pr@(Projectile (x, y) dir) o@(Asteroid oh op@(ex, ey) odir)
-                                                                    | ((x + 10) > (ex - 10)) && ((y + 10) > (ey - 10)) && ((x - 10) > (ex + 10)) && ((y - 10) > (ey + 10)) = GameState ((Asteroid (oh - 1) op odir) : (filter (\x -> x /= o) os)) (Player h pos pdir (filter (\x -> x /= pr) ps)) s t d False
+checkPlayerProjectileCollision pr@(Projectile (x, y) dir) g@(GameState os p@(Player h pos pdir ps) s t d _) o@(Asteroid oh op@(ex, ey) odir)
+                                                                    | ((x + 10) > (ex - 10)) && ((y + 10) > (ey - 10)) && ((x - 10) < (ex + 10)) && ((y - 10) < (ey + 10)) = GameState ((Asteroid (oh - 1) op odir) : (delete o os)) (Player h pos pdir (filter (\x -> x /= pr) ps)) s t d False
                                                                     | otherwise = g
-checkPlayerProjectileCollision g@(GameState os p@(Player h pos pdir ps) s t d _) pr@(Projectile (x, y) dir) o@(Mine oh op@(ex, ey))
-                                                                    | ((x + 10) > (ex - 10)) && ((y + 10) > (ey - 10)) && ((x - 10) > (ex + 10)) && ((y - 10) > (ey + 10)) = GameState ((Mine (oh - 1) op) : (filter (\x -> x /= o) os)) (Player h pos pdir (filter (\x -> x /= pr) ps)) s t d False
+checkPlayerProjectileCollision pr@(Projectile (x, y) dir) g@(GameState os p@(Player h pos pdir ps) s t d _) o@(Mine oh op@(ex, ey))
+                                                                    | ((x + 10) > (ex - 10)) && ((y + 10) > (ey - 10)) && ((x - 10) < (ex + 10)) && ((y - 10) < (ey + 10)) = GameState ((Mine (oh - 1) op) : (delete o os)) (Player h pos pdir (filter (\x -> x /= pr) ps)) s t d False
                                                                     | otherwise = g
-checkPlayerProjectileCollision g _ _ = g
+checkPlayerProjectileCollision _ g _ = g
 
 movePlayer :: Player -> Player
 movePlayer (Player h (x, y) (dx, dy) ps) = Player h (x + dx, y + dy) (0.94 * dx, 0.94 * dy) ps
