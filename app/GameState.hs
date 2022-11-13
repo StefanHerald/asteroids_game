@@ -13,5 +13,5 @@ instance ToFile GameState where
                                                ++ show time ++ "\n"
                                                ++ show dif
 initialGameState :: GameState
-initialGameState = GameState [Asteroid 1 (10,10) (0,0), Asteroid 0 (-40,-40) (0,0), Animation (50,50) 0 0] initialPlayer 0 0 0 False
+initialGameState = GameState [] initialPlayer 0 0 0 False
 

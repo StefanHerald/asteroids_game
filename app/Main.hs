@@ -78,23 +78,26 @@ handleDeath :: Event -> GameState -> IO GameState
 handleDeath (EventKey (Char 'k') _ _ _) gstate = return initialGameState
 handleDeath (EventKey (Char 'r') _ _ _) gstate = loadGame
 handleDeath _ gstate = return gstate 
+
 playerShot :: Player -> Player
 playerShot p@(Player h pos dir ps)
                                 | length ps < 5 = Player h pos dir (ps ++ [Projectile pos dir])
                                 | otherwise = p
 
 step :: Float -> GameState -> IO GameState --secs is truly the amount of secs
-step secs gstate@(GameState os p s t d _) = do
-                                     g <- getStdGen
-                                     let x = fst (randomR (1, d) g)
-                                     setStdGen (takeSecond (randomR (1, d) g))
-                                     g <- getStdGen
-                                     let y = fst (randomR (1, d) g)
-                                     setStdGen (takeSecond (randomR (1, d) g))
-                                     g <- getStdGen
-                                     let z = fst (randomR (1, 5 * d) g)
-                                     setStdGen (takeSecond (randomR (1, d) g))
-                                     return ( spawnEnemyOrNot (mod x 10) y z (stepObj (updateGamestate gstate{timer = timer gstate + secs })))
+step secs gstate@(GameState os p s t d pause) 
+    | pause = return gstate
+    | otherwise =  do
+    g <- getStdGen
+    let x = fst (randomR (1, d) g)
+    setStdGen (takeSecond (randomR (1, d) g))
+    g <- getStdGen
+    let y = fst (randomR (1, d) g)
+    setStdGen (takeSecond (randomR (1, d) g))
+    g <- getStdGen
+    let z = fst (randomR (1, 5 * d) g)
+    setStdGen (takeSecond (randomR (1, d) g))
+    return ( spawnEnemyOrNot (mod x 10) y z (stepObj (updateGamestate gstate{timer = timer gstate + secs })))
                                     
 takeSecond :: (a, b) -> b
 takeSecond (a, b) = b
@@ -105,7 +108,7 @@ spawnEnemyOrNot x y z g@(GameState os p s t d b)
                                         | otherwise = GameState os p s t d b
 
 stepObj :: GameState -> GameState --can be called for more than just removing objects with 0 HP
-stepObj (GameState obj p sc t d boo) = GameState (removeZeroHp obj) p sc t d boo 
+stepObj (GameState obj p sc t d boo) = GameState (removeZeroHp obj) (p{health = max 0 (health p)}) sc t d boo 
 
 removeZeroHp :: [Obstacle] -> [Obstacle]
 removeZeroHp [] = []

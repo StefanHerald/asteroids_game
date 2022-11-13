@@ -65,7 +65,8 @@ data Player = Player{ health :: Health, position :: Pos, direction :: Dir, proje
               deriving (Show)
 
 instance OnScreen Player where
-    onScreen (Player _ pos dir pro) = pictures ((color green (resizeRotateAndTranslate (0.2, 0.2 ) pos dir (text "Y"))) : (map onScreen pro))
+    onScreen (Player h pos@(px, py) dir pro) = pictures ((color green (resizeRotateAndTranslate (0.2, 0.2 ) pos dir (text "Y"))) :
+                                      (color green (resizeRotateAndTranslate (0.1, 0.1 ) (px, py + 30) (0,0) (text (show h)))) : (map onScreen pro))
 
 instance ToFile Player where
     toFile (Player health (px, py) (dx, dy) pro) = "W" ++ " " ++ 
