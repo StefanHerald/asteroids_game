@@ -29,11 +29,11 @@ rotateAndTranslate (px, py) dir pic = translate px py (rotate (argV dir) pic)
 brown :: Color
 brown = makeColorI 255 248 220 255
 
-data Player = Player Health Pos Dir
+data Player = Player{ health :: Health, position :: Pos, direction :: Dir, projectiles :: [Obstacle]}
               deriving (Show)
 
 instance OnScreen Player where
-    onScreen (Player _ pos dir) = color green (rotateAndTranslate pos dir (text "Y"))
+    onScreen (Player _ pos dir _) = color green (rotateAndTranslate pos dir (text "Y"))
 
 initialPlayer :: Player
-initialPlayer = Player 3 (300, 300) (0,0)
+initialPlayer = Player 3 (300, 300) (0,0) []
