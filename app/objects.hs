@@ -9,6 +9,8 @@ type Pos      = (Float, Float)
 type Health   = Int
 
 --typeclass for displaying on the screen
+class ToFile a where
+    toFile :: a -> String
 class OnScreen a where
     onScreen :: a -> Picture
 data Obstacle = Enemy Health Pos Dir
@@ -23,6 +25,28 @@ instance OnScreen Obstacle where
     onScreen (Mine _ pos)         = color red    (resizeRotateAndTranslate (0.2, 0.2) pos (0,0) (text "X"))
     onScreen (Projectile pos dir) = color yellow (resizeRotateAndTranslate (0.2, 0.2) pos dir   (text "I"))
 
+instance ToFile Obstacle where
+    toFile (Enemy health (px, py) (dx, dy)) = "E " ++ 
+                                            show health ++ " " ++ 
+                                            show px ++ " " ++ 
+                                            show py ++ " " ++ 
+                                            show dx ++ " " ++ 
+                                            show dy ++ " " 
+    toFile (Asteroid health (px, py) (dx, dy)) = "A " ++ 
+                                                show health ++ " " ++ 
+                                                show px ++ " " ++ 
+                                                show py ++ " " ++ 
+                                                show dx ++ " " ++ 
+                                                show dy ++ " "
+    toFile (Mine health (px, py)) = "M " ++ 
+                                    show health ++ " " ++ 
+                                    show px ++ " " ++ 
+                                    show py ++ " "
+    toFile (Projectile (px, py) (dx, dy)) = "P" ++ " " ++ 
+                                            show px ++ " " ++ 
+                                            show py ++ " " ++ 
+                                            show dx ++ " " ++ 
+                                            show dy ++ " "  
 resizeRotateAndTranslate :: (Float, Float) -> Pos -> Dir -> Picture -> Picture
 resizeRotateAndTranslate (sx, sy) (px, py) dir pic = translate px py (rotate (argV dir) (scale sx sy pic))
 
@@ -35,5 +59,13 @@ data Player = Player{ health :: Health, position :: Pos, direction :: Dir, proje
 instance OnScreen Player where
     onScreen (Player _ pos dir pro) = pictures ((color green (resizeRotateAndTranslate (0.2, 0.2 ) pos dir (text "Y"))) : (map onScreen pro))
 
+instance ToFile Player where
+    toFile (Player health (px, py) (dx, dy) pro) = "W" ++ " " ++ 
+                                                    (show health) ++ " " ++
+                                                    (show px) ++ " " ++ 
+                                                    (show py) ++ " " ++ 
+                                                    (show dx) ++ " " ++ 
+                                                    (show dy) ++ " " ++ 
+                                                    (concat (map toFile pro))
 initialPlayer :: Player
 initialPlayer = Player 3 (0, 0) (0, 0) []
