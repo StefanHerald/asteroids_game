@@ -11,8 +11,10 @@ type Health   = Int
 --typeclass for displaying on the screen
 class ToFile a where
     toFile :: a -> String
+    
 class OnScreen a where
     onScreen :: a -> Picture
+
 data Obstacle = Enemy Health Pos Dir
                 | Asteroid Health Pos Dir
                 | Mine Health Pos
@@ -22,6 +24,7 @@ data Obstacle = Enemy Health Pos Dir
 
 newAnimation :: Pos -> Obstacle 
 newAnimation pos = Animation pos 0 0
+
 instance OnScreen Obstacle where
     onScreen (Enemy _ pos dir)    = color cyan   (resizeRotateAndTranslate (0.2, 0.2) pos dir   (text "A"))
     onScreen (Asteroid _ pos dir) = color brown  (resizeRotateAndTranslate (0.2, 0.2) pos dir   (text "O"))

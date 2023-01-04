@@ -4,6 +4,7 @@ import Graphics.Gloss.Interface.IO.Game
 import Graphics.Gloss.Interface.Environment
 import GameState
 import Objects
+import PausingAndLoading
 import Control.Monad
 import System.Random
 import Data.List
@@ -118,61 +119,7 @@ removeZeroHp (Asteroid 0 pos _ : xs) = newAnimation pos : removeZeroHp xs
 removeZeroHp (Mine 0 pos : xs )      = newAnimation pos : removeZeroHp xs
 removeZeroHp (x : xs)                = x : removeZeroHp xs
 
---pausing, saving and loading the game
-handlePause :: Event -> GameState -> IO GameState
-handlePause (EventKey key Down _ _) gstate = do
-    case key of
-        (Char 'a') -> return initialGameState
-        (SpecialKey KeySpace ) -> return gstate{paused = False}
-        (Char 'r') -> do 
-            saveGame gstate
-            return gstate
-        (Char 'l') -> do
-            loadGame
-        _  -> return gstate
-handlePause _ gstate = return gstate
-saveGame :: GameState -> IO()
-saveGame gstate = do 
-    writeFile "../asteroids_game/saves/save" (toFile gstate)
 
-loadGame :: IO GameState
-loadGame = do
-    file <- readFile "../asteroids_game/saves/save"
-    if file == "" then
-        return initialGameState
-    else
-        let ls = lines file
-            obs = loadObs $ words (head ls)
-            lss = drop 1 ls
-            p = loadPl $ words (head lss)
-            lsss = drop 1 lss
-            sc = read $ head lsss :: Int
-            lssss = drop 1 lsss
-            time = read $ head lssss :: Float
-            lsssss = drop 1 lssss
-            dif = read $ head lsssss :: Int
-            in
-            return (GameState obs p sc time dif False)
-
-loadObs :: [String] -> [Obstacle]
-loadObs [] = []
-loadObs ("E":h:px:py:dx:dy:rest) = Enemy (readHealth h) (readPos px py) (readDir dx dy) : loadObs rest
-loadObs ("A":h:px:py:dx:dy:rest) = Asteroid (readHealth h) (readPos px py) (readDir dx dy) : loadObs rest
-loadObs ("M":h:px:py:rest) = Mine (readHealth h) (readPos px py): loadObs rest
-loadObs ("P":px:py:dx:dy:rest) = Projectile (readPos px py) (readDir dx dy)  : loadObs rest
-loadObs (x:xs) = []
-
-loadPl :: [String] -> Player
-loadPl (_:h:px:py:dx:dy: pro) = Player (readHealth h) (readPos px py) (readDir dx dy) (loadObs pro)
-loadPl [] = initialPlayer
-loadPl (x:xs) = initialPlayer
-
-readHealth :: String -> Health
-readHealth = read  
-readPos :: String -> String -> Pos
-readPos px py = (read px, read py)
-readDir :: String -> String -> Dir
-readDir dx dy = (read dx, read dy)
 
 --moving objects and deleting them
 updateGamestate :: GameState -> GameState
@@ -200,26 +147,26 @@ deleteOutOfBounds ps = filter (\(Projectile (x, y) dir) -> x < 300 && y < 300 &&
 
 checkPlayerCollision :: GameState -> Obstacle -> GameState
 checkPlayerCollision g@(GameState os p@(Player h (x, y) (dx, dy) ps) s t d _) o@(Enemy oh op@(ex, ey) odir@(odx, ody))
-                                                                    | ((x + 10) > (ex - 10)) && ((y + 10) > (ey - 10)) && ((x - 10) < (ex + 10)) && ((y - 10) < (ey + 10)) = GameState ((Enemy (oh - 1) (ex - odx, ey - ody) (-odx, -ody)) : (delete o os)) (Player (h - 1) (x - (1 * dx), y - (1 * dy)) (-1 * dx, -1 * dy) ps) s t d False
-                                                                    | otherwise = g
+    | ((x + 10) > (ex - 10)) && ((y + 10) > (ey - 10)) && ((x - 10) < (ex + 10)) && ((y - 10) < (ey + 10)) = GameState ((Enemy (oh - 1) (ex - odx, ey - ody) (-odx, -ody)) : (delete o os)) (Player (h - 1) (x - (1 * dx), y - (1 * dy)) (-1 * dx, -1 * dy) ps) s t d False
+    | otherwise = g
 checkPlayerCollision g@(GameState os p@(Player h (x, y) (dx, dy) ps) s t d _) o@(Asteroid oh op@(ex, ey) odir@(odx, ody))
-                                                                    | ((x + 10) > (ex - 10)) && ((y + 10) > (ey - 10)) && ((x - 10) < (ex + 10)) && ((y - 10) < (ey + 10)) = GameState ((Asteroid (oh - 1) (ex - odx, ey - ody) (-odx, -ody)) : (delete o os)) (Player (h - 1) (x - (1 * dx), y - (1 * dy)) (-1 * dx, -1 * dy) ps) s t d False
-                                                                    | otherwise = g
+    | ((x + 10) > (ex - 10)) && ((y + 10) > (ey - 10)) && ((x - 10) < (ex + 10)) && ((y - 10) < (ey + 10)) = GameState ((Asteroid (oh - 1) (ex - odx, ey - ody) (-odx, -ody)) : (delete o os)) (Player (h - 1) (x - (1 * dx), y - (1 * dy)) (-1 * dx, -1 * dy) ps) s t d False
+    | otherwise = g
 checkPlayerCollision g@(GameState os p@(Player h (x, y) (dx, dy) ps) s t d _) o@(Mine oh op@(ex, ey))
-                                                                    | ((x + 10) > (ex - 10)) && ((y + 10) > (ey - 10)) && ((x - 10) < (ex + 10)) && ((y - 10) < (ey + 10)) = GameState (delete o os) (Player (h - 3) (x - (1 * dx), y - (1 * dy)) (-1 * dx, -1 * dy) ps) s t d False
-                                                                    | otherwise = g
+    | ((x + 10) > (ex - 10)) && ((y + 10) > (ey - 10)) && ((x - 10) < (ex + 10)) && ((y - 10) < (ey + 10)) = GameState (delete o os) (Player (h - 3) (x - (1 * dx), y - (1 * dy)) (-1 * dx, -1 * dy) ps) s t d False
+    | otherwise = g
 checkPlayerCollision g _ = g
 
 checkPlayerProjectileCollision :: Obstacle -> GameState -> Obstacle -> GameState
 checkPlayerProjectileCollision pr@(Projectile (x, y) dir) g@(GameState os p@(Player h pos pdir ps) s t d _) o@(Enemy oh op@(ex, ey) odir)
-                                                                    | ((x + 10) > (ex - 10)) && ((y + 10) > (ey - 10)) && ((x - 10) < (ex + 10)) && ((y - 10) < (ey + 10)) = GameState ((Enemy (oh - 1) op odir) : (delete o os)) (Player h pos pdir (filter (\x -> x /= pr) ps)) s t d False
-                                                                    | otherwise = g
+    | ((x + 10) > (ex - 10)) && ((y + 10) > (ey - 10)) && ((x - 10) < (ex + 10)) && ((y - 10) < (ey + 10)) = GameState ((Enemy (oh - 1) op odir) : (delete o os)) (Player h pos pdir (filter (\x -> x /= pr) ps)) s t d False
+    | otherwise = g
 checkPlayerProjectileCollision pr@(Projectile (x, y) dir) g@(GameState os p@(Player h pos pdir ps) s t d _) o@(Asteroid oh op@(ex, ey) odir)
-                                                                    | ((x + 10) > (ex - 10)) && ((y + 10) > (ey - 10)) && ((x - 10) < (ex + 10)) && ((y - 10) < (ey + 10)) = GameState ((Asteroid (oh - 1) op odir) : (delete o os)) (Player h pos pdir (filter (\x -> x /= pr) ps)) s t d False
-                                                                    | otherwise = g
+    | ((x + 10) > (ex - 10)) && ((y + 10) > (ey - 10)) && ((x - 10) < (ex + 10)) && ((y - 10) < (ey + 10)) = GameState ((Asteroid (oh - 1) op odir) : (delete o os)) (Player h pos pdir (filter (\x -> x /= pr) ps)) s t d False
+    | otherwise = g
 checkPlayerProjectileCollision pr@(Projectile (x, y) dir) g@(GameState os p@(Player h pos pdir ps) s t d _) o@(Mine oh op@(ex, ey))
-                                                                    | ((x + 10) > (ex - 10)) && ((y + 10) > (ey - 10)) && ((x - 10) < (ex + 10)) && ((y - 10) < (ey + 10)) = GameState ((Mine (oh - 1) op) : (delete o os)) (Player h pos pdir (filter (\x -> x /= pr) ps)) s t d False
-                                                                    | otherwise = g
+    | ((x + 10) > (ex - 10)) && ((y + 10) > (ey - 10)) && ((x - 10) < (ex + 10)) && ((y - 10) < (ey + 10)) = GameState ((Mine (oh - 1) op) : (delete o os)) (Player h pos pdir (filter (\x -> x /= pr) ps)) s t d False
+    | otherwise = g
 checkPlayerProjectileCollision _ g _ = g
 
 movePlayer :: Player -> Player
@@ -252,5 +199,5 @@ distance (x1, y1) (x2, y2) = ((x2, y2), (sqrt ((x1 - x2) * (x1 - x2) + (y1 - y2)
 
 movetoIdealState :: Obstacle -> Obstacle -> Obstacle
 movetoIdealState (Enemy h pos@(x, y) (dx, dy)) (Enemy _ (ix, iy) iDir@(idx, idy))
-                                                                                 | x > (ix - 5) && x < (ix + 5) && y > (iy - 5) && y < (iy + 5) = Enemy h pos iDir
-                                                                                 | otherwise = Enemy h pos ((ix - x) / (getDistanceNoPos (distance (x, y) (ix, iy))), (iy - y) / (getDistanceNoPos (distance (x, y) (ix, iy))))
+    | x > (ix - 5) && x < (ix + 5) && y > (iy - 5) && y < (iy + 5) = Enemy h pos iDir
+    | otherwise = Enemy h pos ((ix - x) / (getDistanceNoPos (distance (x, y) (ix, iy))), (iy - y) / (getDistanceNoPos (distance (x, y) (ix, iy))))
