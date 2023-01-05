@@ -5,6 +5,8 @@ import Graphics.Gloss.Interface.Environment
 import GameState
 import Objects
 import PausingAndLoading
+import Collision
+import Movement
 import Control.Monad
 import System.Random
 import Data.List
@@ -136,68 +138,8 @@ applyApplyChain a [] _ = a
 applyApplyChain a (p : []) os = applyChain (checkPlayerProjectileCollision p) a os
 applyApplyChain a (p : ps) os = applyApplyChain (applyChain (checkPlayerProjectileCollision p) a os) ps os
 
-moveObjects :: Player -> Obstacle -> Obstacle
-moveObjects p (Enemy h (x, y) dir@(dx, dy)) = enemyAI (Enemy h (x + dx, y + dy) dir) p
-moveObjects _ (Asteroid h (x, y) dir@(dx, dy)) = Asteroid h (x + dx, y + dy) dir
-moveObjects _ (Projectile (x, y) dir@(dx, dy)) = Projectile (x + dx, y + dy) dir
-moveObjects _ a = a
 
 deleteOutOfBounds :: [Obstacle] -> [Obstacle]
 deleteOutOfBounds ps = filter (\(Projectile (x, y) dir) -> x < 300 && y < 300 && x > -300 && y > -300) ps
 
-checkPlayerCollision :: GameState -> Obstacle -> GameState
-checkPlayerCollision g@(GameState os p@(Player h (x, y) (dx, dy) ps) s t d _) o@(Enemy oh op@(ex, ey) odir@(odx, ody))
-    | ((x + 10) > (ex - 10)) && ((y + 10) > (ey - 10)) && ((x - 10) < (ex + 10)) && ((y - 10) < (ey + 10)) = GameState ((Enemy (oh - 1) (ex - odx, ey - ody) (-odx, -ody)) : (delete o os)) (Player (h - 1) (x - (1 * dx), y - (1 * dy)) (-1 * dx, -1 * dy) ps) s t d False
-    | otherwise = g
-checkPlayerCollision g@(GameState os p@(Player h (x, y) (dx, dy) ps) s t d _) o@(Asteroid oh op@(ex, ey) odir@(odx, ody))
-    | ((x + 10) > (ex - 10)) && ((y + 10) > (ey - 10)) && ((x - 10) < (ex + 10)) && ((y - 10) < (ey + 10)) = GameState ((Asteroid (oh - 1) (ex - odx, ey - ody) (-odx, -ody)) : (delete o os)) (Player (h - 1) (x - (1 * dx), y - (1 * dy)) (-1 * dx, -1 * dy) ps) s t d False
-    | otherwise = g
-checkPlayerCollision g@(GameState os p@(Player h (x, y) (dx, dy) ps) s t d _) o@(Mine oh op@(ex, ey))
-    | ((x + 10) > (ex - 10)) && ((y + 10) > (ey - 10)) && ((x - 10) < (ex + 10)) && ((y - 10) < (ey + 10)) = GameState (delete o os) (Player (h - 3) (x - (1 * dx), y - (1 * dy)) (-1 * dx, -1 * dy) ps) s t d False
-    | otherwise = g
-checkPlayerCollision g _ = g
 
-checkPlayerProjectileCollision :: Obstacle -> GameState -> Obstacle -> GameState
-checkPlayerProjectileCollision pr@(Projectile (x, y) dir) g@(GameState os p@(Player h pos pdir ps) s t d _) o@(Enemy oh op@(ex, ey) odir)
-    | ((x + 10) > (ex - 10)) && ((y + 10) > (ey - 10)) && ((x - 10) < (ex + 10)) && ((y - 10) < (ey + 10)) = GameState ((Enemy (oh - 1) op odir) : (delete o os)) (Player h pos pdir (filter (\x -> x /= pr) ps)) s t d False
-    | otherwise = g
-checkPlayerProjectileCollision pr@(Projectile (x, y) dir) g@(GameState os p@(Player h pos pdir ps) s t d _) o@(Asteroid oh op@(ex, ey) odir)
-    | ((x + 10) > (ex - 10)) && ((y + 10) > (ey - 10)) && ((x - 10) < (ex + 10)) && ((y - 10) < (ey + 10)) = GameState ((Asteroid (oh - 1) op odir) : (delete o os)) (Player h pos pdir (filter (\x -> x /= pr) ps)) s t d False
-    | otherwise = g
-checkPlayerProjectileCollision pr@(Projectile (x, y) dir) g@(GameState os p@(Player h pos pdir ps) s t d _) o@(Mine oh op@(ex, ey))
-    | ((x + 10) > (ex - 10)) && ((y + 10) > (ey - 10)) && ((x - 10) < (ex + 10)) && ((y - 10) < (ey + 10)) = GameState ((Mine (oh - 1) op) : (delete o os)) (Player h pos pdir (filter (\x -> x /= pr) ps)) s t d False
-    | otherwise = g
-checkPlayerProjectileCollision _ g _ = g
-
-movePlayer :: Player -> Player
-movePlayer (Player h (x, y) (dx, dy) ps) = Player h (x + dx, y + dy) (0.94 * dx, 0.94 * dy) ps
-
-enemyAI :: Obstacle -> Player -> Obstacle
-enemyAI e@(Enemy h (x, y) dir) (Player _ (px, py) _ _) = (movetoIdealState e (Enemy h idealPos idealDir))
-   where
-      idealPos = (posWithMinDistance (map (distance (x, y)) [(px + 20, py), (px - 20, py), (px, py + 20), (px, py - 20)]))   --Can replace with formula for circle around player with radius 20
-      idealDir = ((px - x) / (getDistanceNoPos (distance (x, y) (px, py))), (py - y) / (getDistanceNoPos (distance (x, y) (px, py))))
-
-getDistanceNoPos :: (Pos, Float) -> Float
-getDistanceNoPos (a, b) = b
-
-posWithMinDistance :: [(Pos, Float)] -> Pos
-posWithMinDistance [a, b, c, d] = (partOfAnInefficientFunction (posWithMinDistance_ a b) (posWithMinDistance_ c d))
-
-posWithMinDistance_ :: (Pos, Float) -> (Pos, Float) -> (Pos, Float)
-posWithMinDistance_ (a, b) (c, d)
-                                 | b > d = (a, b)
-                                 | otherwise = (c, d)
-
-partOfAnInefficientFunction :: (Pos, Float) -> (Pos, Float) -> Pos
-partOfAnInefficientFunction (a, b) (c, d)
-                                         | b > d = a
-                                         | otherwise = c
-
-distance :: Pos -> Pos -> (Pos, Float)
-distance (x1, y1) (x2, y2) = ((x2, y2), (sqrt ((x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2))))
-
-movetoIdealState :: Obstacle -> Obstacle -> Obstacle
-movetoIdealState (Enemy h pos@(x, y) (dx, dy)) (Enemy _ (ix, iy) iDir@(idx, idy))
-    | x > (ix - 5) && x < (ix + 5) && y > (iy - 5) && y < (iy + 5) = Enemy h pos iDir
-    | otherwise = Enemy h pos ((ix - x) / (getDistanceNoPos (distance (x, y) (ix, iy))), (iy - y) / (getDistanceNoPos (distance (x, y) (ix, iy))))
