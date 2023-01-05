@@ -1,6 +1,10 @@
 module PausingAndLoading where
+
 import GameState
 import Objects
+import Graphics.Gloss 
+import Graphics.Gloss.Interface.IO.Game
+import Graphics.Gloss.Interface.Environment
 --pausing, saving and loading the game
 handlePause :: Event -> GameState -> IO GameState
 handlePause (EventKey key Down _ _) gstate = do
